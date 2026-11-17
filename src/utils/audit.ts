@@ -97,6 +97,13 @@ export function runInvestigation(
     throw new Error('Daily Planning Sheet contains no rows');
   }
 
+  if (!employerRows.some((r) => r.employee && r.employee.trim())) {
+    throw new Error(
+      'The Daily Planning Sheet has no analyst name (no Analyst column and none found above the table). ' +
+        'Enter the analyst name in the box under the sheet upload, then run the audit again.'
+    );
+  }
+
   const isAllRegions =
     !selectedRegion || selectedRegion === 'all' || selectedRegion === 'All Regions';
 
@@ -200,8 +207,25 @@ export function runInvestigation(
 
   let excludedCountDueToCountry = 0;
   let ignoredTimeRows = 0;
+  let notInPlanningRows = 0;
+
+  // Only analysts named in the Daily Planning Sheet are audited. Data Pull rows
+  // belonging to anyone else are skipped entirely (not flagged).
+  const planningAnalysts = Array.from(
+    new Set(
+      employerRows
+        .map((r) => (r.employee || '').trim())
+        .filter(Boolean)
+    )
+  );
 
   let empRowsInScope = employeeRows.filter((r) => {
+    // Analyst check: Data Pull name (First name col H + Last name col I) must match a planning-sheet analyst
+    if (!planningAnalysts.some((n) => matchAnalyst(r.name, n))) {
+      notInPlanningRows++;
+      return false;
+    }
+
     // Category check
     const res = resolveLabel(r.type, 'time', null, strictLabels);
     if (!res.category && !res.nearMiss) {
@@ -240,24 +264,6 @@ export function runInvestigation(
       const reg = analystPrimaryRegion.get(clean) || r.region || mapGeographyToRegion(r.geography) || undefined;
       if (!analystMap.has(key)) {
         analystMap.set(key, { canonicalName: clean, nameKey: key, region: reg });
-      }
-    }
-  });
-
-  // From Data Pull Sheet
-  empRowsInScope.forEach((r) => {
-    if (r.name && r.name.trim()) {
-      const clean = r.name.trim();
-      const key = r.nameKey || clean.toLowerCase();
-      let existingKey: string | null = null;
-      for (const [k, val] of analystMap.entries()) {
-        if (matchAnalyst(val.canonicalName, clean)) {
-          existingKey = k;
-          break;
-        }
-      }
-      if (!existingKey) {
-        analystMap.set(key, { canonicalName: clean, nameKey: key, region: canonicalRegion !== 'All Regions' ? canonicalRegion : undefined });
       }
     }
   });
@@ -661,6 +667,7 @@ export function runInvestigation(
     erFile: erFileName,
     trackedRowCount: empRowsInScope.length,
     ignoredRowCount: ignoredTimeRows,
+    notInPlanningRowCount: notInPlanningRows,
     strictLabels,
     totalRowCount: employeeRows.length,
     runAt: new Date().toLocaleString()
@@ -721,6 +728,7 @@ export function buildReportMatrix(
   rows.push(['Audit Region', rep.selectedRegion]);
   rows.push(['Target Country Codes (Col C)', rep.targetCountryCodes && rep.targetCountryCodes.length ? rep.targetCountryCodes.join(', ') : 'All']);
   rows.push(['Data Pull Rows Excluded (Non-matching Country)', rep.excludedCountDueToCountry || 0]);
+  rows.push(['Data Pull Rows Skipped (analyst not in Daily Planning Sheet)', rep.notInPlanningRowCount || 0]);
   rows.push(['Data Pull Rows Ignored (untracked type, e.g. Minimal)', rep.ignoredRowCount || 0]);
   rows.push(['Label Matching', rep.strictLabels ? 'Strict (case / spelling sensitive)' : 'Tolerant (ignores case / spacing)']);
   rows.push(['Week Identifier', rep.selectedWeek]);

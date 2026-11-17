@@ -24,6 +24,7 @@ export default function App() {
   const [report, setReport] = useState<AuditReportData | null>(null);
   const [errorNote, setErrorNote] = useState<string | null>(null);
   const [isLegendOpen, setIsLegendOpen] = useState(false);
+  const [manualAnalyst, setManualAnalyst] = useState<string>('');
   const [strictLabels, setStrictLabels] = useState<boolean>(DEFAULT_STRICT_LABELS);
 
   const [isDark, setIsDark] = useState<boolean>(() => {
@@ -263,6 +264,34 @@ export default function App() {
               }
             }}
           />
+        )}
+
+        {/* Planning sheet without an analyst name: let the user supply it */}
+        {employerRows && employerRows.length > 0 && !employerRows.some((r) => r.employee && r.employee.trim()) && (
+          <div className="mb-4 p-4 border-2 border-[var(--flag-border)] bg-[var(--flag-bg)] font-mono text-[12.5px] text-[var(--flag)]">
+            <div className="mb-2 font-bold">
+              No analyst name found in the Daily Planning Sheet. Enter whose sheet this is:
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                value={manualAnalyst}
+                onChange={(e) => setManualAnalyst(e.target.value)}
+                placeholder="e.g. Priya Mathew (as it appears in the Data Pull Sheet)"
+                className="flex-1 px-3 py-2 bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--card-border)]"
+              />
+              <button
+                type="button"
+                disabled={!manualAnalyst.trim()}
+                onClick={() => {
+                  setEmployerRows(employerRows.map((r) => ({ ...r, employee: manualAnalyst.trim() })));
+                  setErrorNote(null);
+                }}
+                className="px-4 py-2 font-bold uppercase tracking-wider bg-[var(--btn-primary-bg)] text-[var(--btn-primary-text)] disabled:opacity-40 cursor-pointer"
+              >
+                Apply
+              </button>
+            </div>
+          </div>
         )}
 
         {/* Matching strictness */}

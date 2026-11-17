@@ -508,6 +508,39 @@ export function detectRegionFromContext(
   return null;
 }
 
+
+/**
+ * Many planning sheets carry the analyst's name ONCE in the block above the table
+ * (e.g. "Analyst: Priya Mathew" or a labelled yellow cell) rather than on every row.
+ * Looks for a label cell (Analyst / Name / Curator / Employee / Prepared by ...) in the
+ * rows above the header and returns the value to its right (or directly below it).
+ */
+export function detectSheetAnalyst(aoa: (string | number)[][], headerRowIdx: number): string | undefined {
+  const labelRe = /^(analyst|analystname|name|curator|curatorname|employee|employeename|preparedby|owner|assignee)$/;
+  const looksLikeName = (v: string) => /[a-zA-Z]{2,}/.test(v) && !/^(week|date|day|region|geography)/i.test(v) && v.length < 60;
+  for (let r = 0; r < Math.min(headerRowIdx, aoa.length); r++) {
+    const row = aoa[r] || [];
+    for (let c = 0; c < row.length; c++) {
+      const raw = String(row[c] ?? '').trim();
+      if (!raw) continue;
+      // "Analyst: Priya Mathew" inside one cell
+      const inline = raw.match(/^(analyst|analyst name|name|curator|employee|prepared by)\s*[:\-]\s*(.+)$/i);
+      if (inline && looksLikeName(inline[2])) return inline[2].trim();
+      const key = raw.toLowerCase().replace(/[^a-z]/g, '');
+      if (!labelRe.test(key)) continue;
+      // value to the right
+      for (let k = c + 1; k < Math.min(row.length, c + 6); k++) {
+        const v = String(row[k] ?? '').trim();
+        if (v && looksLikeName(v)) return v;
+      }
+      // value directly below
+      const below = String((aoa[r + 1] || [])[c] ?? '').trim();
+      if (below && looksLikeName(below)) return below;
+    }
+  }
+  return undefined;
+}
+
 export function normalizeEmployerRows(
   aoa: (string | number)[][],
   context?: {
@@ -665,6 +698,8 @@ export function normalizeEmployerRows(
     throw new Error('Could not find a Date / Asset name / Production / Review / Analyst header row in the Daily Planning Sheet');
   }
 
+  const sheetAnalyst = idx.employee < 0 ? detectSheetAnalyst(aoa, headerRowIdx) : undefined;
+
   const rows: RawEmployerRow[] = [];
   for (let i = headerRowIdx + 1; i < aoa.length; i++) {
     const r = aoa[i];
@@ -691,7 +726,7 @@ export function normalizeEmployerRows(
       production: idx.production >= 0 ? String(r[idx.production] || '').trim() : '',
       review: idx.review >= 0 ? String(r[idx.review] || '').trim() : '',
       status: idx.status >= 0 ? String(r[idx.status] || '').trim() : '',
-      employee: analystRaw || undefined,
+      employee: analystRaw || sheetAnalyst || undefined,
       week: effectiveWeek || undefined,
       day: idx.day >= 0 ? String(r[idx.day] || '').trim() : undefined,
       geography: geoRaw || undefined,

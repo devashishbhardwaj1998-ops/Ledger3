@@ -131,6 +131,7 @@ export interface AuditReportData {
   erFile: string;
   trackedRowCount: number;
   ignoredRowCount: number;
+  notInPlanningRowCount: number;
   strictLabels: boolean;
   totalRowCount: number;
   runAt: string;

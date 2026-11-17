@@ -154,6 +154,11 @@ export const DiscrepancyReport: React.FC<DiscrepancyReportProps> = ({ report }) 
               <span>
                 Date range: <strong className="text-[var(--ink)]">{formatDateDDMMYYYY(report.windowStart)}</strong> through <strong className="text-[var(--ink)]">{formatDateDDMMYYYY(report.windowEnd)}</strong>
               </span>
+              {report.notInPlanningRowCount > 0 && (
+                <span className="text-[11px] text-[var(--brass)] font-semibold">
+                  • {report.notInPlanningRowCount} Data Pull Sheet row{report.notInPlanningRowCount > 1 ? 's' : ''} skipped (analyst not in Daily Planning Sheet)
+                </span>
+              )}
               {report.excludedCountDueToCountry > 0 && (
                 <span className="text-[11px] text-[var(--brass)] font-semibold">
                   • {report.excludedCountDueToCountry} non-matching Data Pull Sheet row{report.excludedCountDueToCountry > 1 ? 's were' : ' was'} excluded based on Column C
